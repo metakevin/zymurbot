@@ -1,4 +1,7 @@
+import RPIO
+import RPIO.PWM as PWM
 import RPi.GPIO as GPIO
+
 import json
 import time
 
@@ -34,14 +37,14 @@ class MainPage(resource.Resource):
 
 
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
+RPIO.setmode(GPIO.BCM)
+RPIO.setwarnings(False)
 
 pin_step = 24
 pin_dir = 25
 
-GPIO.setup(pin_step, GPIO.OUT) # STEP
-GPIO.setup(pin_dir, GPIO.OUT) # DIRECTION
+RPIO.setup(pin_step, GPIO.OUT) # STEP
+RPIO.setup(pin_dir, GPIO.OUT) # DIRECTION
 
 
 # stepper is 200 steps per ref
@@ -53,7 +56,21 @@ GPIO.setup(pin_dir, GPIO.OUT) # DIRECTION
 # 1,000 HZ = 1000/2000 rev/sec = 60*1000/2000 rev/min = 30 RPM
 
 
-pwm = GPIO.PWM(pin_step, 1)
+# gpio mode 1 pwm
+# gpio pwm-ms
+# gpio pwmc 32  # 19.2MHz / 32 = 600kHz
+# gpio pwm 1 1
+
+# gpio pwmr 10000  # 600kHz / 10,000 = 60Hz
+
+# gpio pwmr 10000  # 600kHz / 600 = 1000Hz
+
+
+
+PWM.setup()
+
+
+#pwm = GPIO.PWM(pin_step, 1)
 
 vol_accum = 0
 cur_gpm = 0
@@ -87,15 +104,29 @@ def start(gpm):
     cur_start = time.time()
     rpm = gpm_to_rpm(gpm)
     hz = rpm * 33.33333333
-    pwm.ChangeFrequency(hz)
-    pwm.start(50.0)
+#    pwm.ChangeFrequency(hz)
+#    pwm.start(50.0)
+
+    # at 4 GPM the pulse width (@ 100 DC) is 110 us.  The DMA PWM lib doesn't
+    # allow for "subcycles" of less than 3000us.  So given the pulse width,
+    # we'll create a subcycle of 100 times the pulse width and add 100 pulses to it
+    us = int(1000000/hz)
+    print "start: hz is %f (us = %d)"%(hz, us)
+    PWM.init_channel(0, us*100)
+    
+    for p in range(0, 100):
+        PWM.add_channel_pulse(0, 17, p*us, p*us+us/2)
+
+    
     print "Pump running at %f GPM, %f RPM, %f Hz"%(gpm, rpm, hz)
 
 def stop():
     global cur_gpm
     accum_vol()
     cur_gpm = 0
-    pwm.stop()
+#    pwm.stop()
+    if PWM.is_channel_initialized(0):
+        PWM.clear_channel(0)
     print "Pump stopped"
 
 dia = 5.5
@@ -139,3 +170,6 @@ if __name__ == "__main__":
     site = server.Site(root)
     reactor.listenTCP(80, site)
     reactor.run()
+
+
+
