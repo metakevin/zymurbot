@@ -1,0 +1,76 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Peristaltic Pump Control</title>
+    <link rel="stylesheet" href="x/jquery-ui.css">
+    <script src="x/jquery-1.9.1.js"></script>
+    <script src="x/jquery-ui.js"></script>
+    <script src="x/jquery.ui.touch-punch.js"></script>
+
+    <script>      
+      $(function() {
+       function post(operation, data) {
+           data.op = operation;
+           $.ajax({
+            type: "POST",
+            url: "/",
+            data: data,
+            dataType: "json",
+            success: function(data) { 
+               vol = Math.round(data.volume * 100)/100
+               $('#cur_vol').text(vol + " gal");
+               $("#amount").val(data.cur_gpm);
+               s = $("#slider-vertical");
+               if (s.slider("option", "value") != data.cur_gpm) {
+                 s.slider("value", data.cur_gpm);
+               }
+            }
+           })
+       }        
+
+       $("resetbutton").button().click(function() {
+          post("reset", {})
+        });
+       $( "#slider-vertical" ).slider({
+          orientation: "vertical",
+          range: "min",
+          min: 0,
+          max: 4,
+          step: .1,
+          value: 0,
+          slide: function( event, ui ) {
+           $("#amount").val(ui.value);
+          },
+          change: function(event, ui) {
+           post("setpump", {gpm: ui.value});
+          }
+       });
+
+       setInterval(function() {
+         post("status", {})
+        }, 1000);
+
+       $( "#amount" ).val( $( "#slider-vertical" ).slider( "value" ) );
+      });
+    </script>
+
+<body>
+ <div style="height: 50px">
+   <label for="amount">Gallons per Minute:</label>
+   <input type="text" id="amount" style="border: 0; color: #f6931f; font-weight: bold;" />
+</div>
+ 
+ <div id="slider-vertical" style="height: 300px; font-size: 48pt"></div>
+ 
+ <div style="height: 50px">
+</div>
+
+ <div>
+   <resetbutton>Reset Volume</resetbutton>
+
+   <div style=""><h3 id="cur_vol">?</h3></div>
+
+ </div>
+
+</body>
+</html>
