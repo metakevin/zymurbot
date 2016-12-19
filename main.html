@@ -6,9 +6,14 @@
     <script src="x/jquery-1.9.1.js"></script>
     <script src="x/jquery-ui.js"></script>
     <script src="x/jquery.ui.touch-punch.js"></script>
+    <style>
+      .bigger {font-size: 18pt}
+    </style>
 
     <script>      
       $(function() {
+       var last_op = 0;
+       var dir = "x";
        function post(operation, data) {
            data.op = operation;
            $.ajax({
@@ -17,17 +22,39 @@
             data: data,
             dataType: "json",
             success: function(data) { 
-               vol = Math.round(data.volume * 100)/100
-               $('#cur_vol').text(vol + " gal");
-               $("#amount").val(data.cur_gpm);
+               var gal = Math.round(data.volume * 100)/100;
+               var qt = Math.round((gal*4)*10)/10;
+               var liters = Math.round((gal*3.78541)*10)/10;
+
+               $("#cur_vol").val(gal + " gal");
+               $("#cur_vol_qt").val(qt + " qt");
+               $("#cur_vol_l").val(liters + " l");
+               $("#cur_rpm").val(data.cur_rpm);
+               $("#cur_gpm").val(data.cur_gpm);
                s = $("#slider-vertical");
-               if (s.slider("option", "value") != data.cur_gpm) {
-                 s.slider("value", data.cur_gpm);
+               var now = new Date().getTime();
+               if (now - last_op > 10) {
+                 if (s.slider("option", "value") != data.cur_gpm) {
+                   s.slider("value", data.cur_gpm);
+                 }
                }
+               dir = data.direction;
+               $("directionbutton").button("option", "label", dir);
             }
            })
+           if (operation != "status") {
+             last_op = new Date().getTime();
+           }
        }        
-
+       $("directionbutton").button().click(function() {
+          if (dir == "CW") {
+            dir = "CCW";
+          } 
+          else {
+            dir = "CW";
+          }
+          post("setdir", {direction: dir});
+        });
        $("resetbutton").button().click(function() {
           post("reset", {})
         });
@@ -39,10 +66,11 @@
           step: .1,
           value: 0,
           slide: function( event, ui ) {
-           $("#amount").val(ui.value);
+           $("#cur_gpm").val(ui.value);
+           post("setpump", {gpm: ui.value});
           },
           change: function(event, ui) {
-           post("setpump", {gpm: ui.value});
+//           post("setpump", {gpm: ui.value});
           }
        });
 
@@ -50,27 +78,43 @@
          post("status", {})
         }, 1000);
 
-       $( "#amount" ).val( $( "#slider-vertical" ).slider( "value" ) );
+       $( "#cur_gpm" ).val( $( "#slider-vertical" ).slider( "value" ) );
       });
     </script>
 
 <body>
- <div style="height: 50px">
-   <label for="amount">Gallons per Minute:</label>
-   <input type="text" id="amount" style="border: 0; color: #f6931f; font-weight: bold;" />
-</div>
- 
- <div id="slider-vertical" style="height: 300px; font-size: 48pt"></div>
- 
- <div style="height: 50px">
-</div>
+<div style="display: block">
+ <div style="float: right">
+   <div id="slider-vertical" style="height: 300px; font-size: 48pt"></div>
+   <div style="height: 50px"> </div>
+   <directionbutton>Direction</directionbutton>
+ </div>
 
  <div>
-   <resetbutton>Reset Volume</resetbutton>
+   <div style="height: 50px">
+     <label for="cur_gpm" style="font-size: 24pt">GPM:</label>
+     <input type="text" id="cur_gpm" size=5 style="border: 0; color: #f6931f; font-weight: bold; font-size: 24pt" />
+   </div>
+   <div style="height: 50px">
+     <label for="cur_rpm" style="font-size: 14pt">RPM:</label>
+     <input type="text" id="cur_rpm" size=5 style="border: 0; color: #f6931f; font-weight: bold; font-size: 14pt" />
+   </div>
 
-   <div style=""><h3 id="cur_vol">?</h3></div>
+   <resetbutton>Reset Volume</resetbutton>  
 
- </div>
+  </div>
+</div>
+
+   <div style="height: 100px"></div>
+   <div style="height: 80px">
+     <input type="text" id="cur_vol" size=5 style="border: 0; color: #f6931f; font-weight: bold; font-size: 24pt" />
+   </div>
+   <div style="height: 50px">
+     <input type="text" id="cur_vol_qt" size=5 style="border: 0; color: #f6931f; font-weight: bold; font-size: 14pt" />
+   </div>
+   <div style="height: 50px">
+     <input type="text" id="cur_vol_l" size=5 style="border: 0; color: #f6931f; font-weight: bold; font-size: 14pt" />
+   </div>
 
 </body>
 </html>

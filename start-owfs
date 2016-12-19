@@ -1,0 +1,14 @@
+
+echo 0 > /sys/class/gpio/export 
+echo 1 > /sys/class/gpio/export 
+echo in > /sys/class/gpio/gpio0/direction 
+echo in > /sys/class/gpio/gpio1/direction 
+./gpio_alt -p 28 -f 0
+./gpio_alt -p 29 -f 0
+
+pkill owserver
+pkill owfs
+
+owserver --i2c=/dev/i2c-0:0x1f --timeout_volatile=1 --timeout_directory=10
+owfs -c /etc/owfs.conf
+

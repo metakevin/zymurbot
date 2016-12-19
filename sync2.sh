@@ -1,4 +1,4 @@
-REMOTE=192.168.1.183
+REMOTE=rpi
 if [ -z "$REMOTE" ]; then
   echo "Specify remote server as sole argument"
   exit 1

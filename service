@@ -1,0 +1,4 @@
+#!/bin/sh
+./start-owfs
+python server.py
+

@@ -47,10 +47,6 @@ wiringpi2.pinMode(pin_dir, wiringpi2.GPIO.OUTPUT)
 wiringpi2.pinMode(pin_step, wiringpi2.GPIO.PWM_OUTPUT)
 wiringpi2.pinMode(pin_statusled, wiringpi2.GPIO.OUTPUT)
 
-i2c = wiringpi2.I2C()
-ard = i2c.setup(0x23)  # arduino
-
-
 # active low LED
 led_state = 0
 def toggle():
@@ -59,87 +55,9 @@ def toggle():
     wiringpi2.digitalWrite(pin_statusled, led_state)
 
 toggle()
- 
-def set_gpm(gpm):
-    if gpm == 0:
-        stop()
-    else:
-        start(gpm, motor_dir)
-
-lsg = i2c.setup(0x70)
-digit_bits = [0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f]
-
-def display_init():
-    i2c.write(lsg, 0x21)
-    i2c.write(lsg, 0x81)
-    # clear display
-    for d in range(0, 10, 2):
-        i2c.writeReg16(lsg, d, 0)
-
-def display_num(n, colon=False):
-    dot = None
-    if type(n) == float:
-        if n > 100:
-            dot = 2 
-            n = int(n*10)
-        else:
-            dot = 1 
-            n = int(n*100)
-    fbaddr = [0, 2, 6, 8]
-    for i, p in enumerate([1000, 100, 10, 1]):
-        if n >= p or i == 3:
-            d = digit_bits[(n/p)%10]
-        elif i >= dot:
-            d = digit_bits[0]
-        else:
-            d = 0
-        i2c.writeReg8(lsg, fbaddr[i], d | (0x80 if dot == i else 0))
-    i2c.writeReg8(lsg, 4, 0xFF if colon else 0)
-   
-pot = 0
-pot_gpm = 0
-pot_samples=[]
-def arduino_read():
-    global pot_gpm, pot, pot_samples
-    potreg = i2c.readReg16(ard, 0)
-    if potreg < 0 or potreg > 1023:
-        print "overrange %s" % (potreg)
-        potreg = 0
-    if potreg > 400:
-        potreg = 400
-    flen = 10
-    decay = 0.95
-    pot_samples = [potreg] + pot_samples[:flen]
-    pot = sum(map(lambda i: i[1]*(pow(decay,i[0])), enumerate(pot_samples)))/sum(map(lambda p: pow(decay, p), range(0,len(pot_samples))))
-    #pot = round(float(sum(pot_samples))/len(pot_samples))
-
-    gpm = pot / 100.0
-    print "ard: potreg %s pot %s gpm %s pot_gpm %s" % (potreg, pot, gpm, pot_gpm)
-    if pot_gpm != gpm:
-        set_gpm(gpm)
-        pot_gpm = gpm
-
+    
 blink = task.LoopingCall(toggle)
 blink.start(0.5)
-
-ardpoll = task.LoopingCall(arduino_read)
-reactor.callLater(5, lambda: ardpoll.start(0.2))
-
-dmode = "vol"
-def display_update():
-   global dmode
-   if dmode == "gpm":
-       display_num(cur_gpm)
-   elif dmode == "vol":
-       display_num(est_vol())
-
-display_init()
-dispup = task.LoopingCall(display_update)
-reactor.callLater(5, lambda: dispup.start(0.1))
-
-
-
-
 
 wiringpi2.pwmSetMode(wiringpi2.GPIO.PWM_MODE_MS) # mark/space i.e. run of 1s followed by run of 0s
 
@@ -224,7 +142,7 @@ def set_direction(d):
     elif dl == 'ccw' or dl == '1':
         motor_dir = 1
     else:
-        print "unrecognized direction %s" % (d)
+        print "unrecognized direction %s"%(d)
 
 def start(gpm, md):
     global cur_gpm, cur_start, motor_dir
@@ -280,7 +198,10 @@ def handle_ajax(args):
     global cur_gpm, motor_dir
     if args['op'] == 'setpump':
         gpm = float(args['gpm'])
-        set_gpm(gpm)
+        if gpm == 0:
+            stop()
+        else:
+            start(gpm, motor_dir)
     elif args['op'] == 'reset':
         reset_vol()
     elif args['op'] == 'status':
