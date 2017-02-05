@@ -103,14 +103,16 @@ def reset_volume(control, value):
     
 arduino.inputs.controls["pump button 1"].add_callback(reset_volume)
 
+pump_tick = 0
 def pump_alternate():
-    global pump_rotation
-    print("Changing pump rotation")
-    if pump_rotation == "cw":
-        pump_rotation = "ccw"
-    else:
-        pump_rotation = "cw"
-    
+    global pump_rotation, pump_tick
+    if pump_tick % 30 == 29:
+        print("Changing pump rotation")
+        if pump_rotation == "cw":
+            pump_rotation = "ccw"
+        else:
+            pump_rotation = "cw"
+    panel.display["pump"].rotate(True)
 pump_alternate_loop = task.LoopingCall(pump_alternate)
 alternating = False
 
@@ -119,10 +121,11 @@ def pump_input_changed(control, value):
     if control.name == "pump direction":
         if value == "lower":
             alternating = True
-            pump_alternate_loop.start(30)
+            pump_alternate_loop.start(1)
         elif alternating:
             pump_alternate_loop.stop()
             alternating = False
+            panel.display["pump"].rotate(False)
         if value == "upper":
             pump_rotation = "cw"
         else:

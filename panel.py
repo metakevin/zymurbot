@@ -94,11 +94,19 @@ class Segment4x14(SegmentX):
     minus = 0b0000000011000000
 
     # Dots are 0,14 2,14 4,14, 6,14
+
+    spinners = [0x40, 0x100, 0x200, 0x400, 0x80, 0x2000, 0x1000, 0x800]
     
     def __init__(self, address, label):
         SegmentX.__init__(self, address, label)
-
+        self.spinner = None
+        
     def number(self, n):
+
+        mix = [0] * 4
+        if self.spinner is not None:
+            mix[0] = self.spinners[self.spinner % len(self.spinners)]
+        
         dot = None
         neg = False
         if n < 0:
@@ -121,7 +129,16 @@ class Segment4x14(SegmentX):
                 d = self.minus
             else:
                 d = 0
-            self.write16(fbaddr[i], d | (0x4000 if dot == i else 0))
+            self.write16(fbaddr[i], d | (0x4000 if dot == i else 0) | mix[i])
+
+    def rotate(self, direction):
+        if direction is not None and self.spinner is None:
+            self.spinner = 0
+        elif direction is not None and self.spinner is not None:
+            self.spinner += 1 if direction else -1
+        else:
+            self.spinner = None
+            
 
     def bitmap(self, a, b):
         self.write16(a, b)
@@ -173,6 +190,16 @@ def test_alpha():
             display["temp_input_2"].number(i)
             print ("%d %x" % (d, 1<<i)),
             sys.stdin.readline()
+
+def test_spinner():
+    for i in range(0,16):
+        display["pump"].rotate(True)
+        display["pump"].number(i)
+        time.sleep(1)
+    for i in range(0,16):
+        display["pump"].rotate(False)
+        display["pump"].number(i)
+        time.sleep(1)
             
 def test():
     while True:
@@ -202,6 +229,7 @@ if __name__ == "__main__":
     parser.add_argument('--test-leds', help="Test LEDs in a loop", action="store_true")
     parser.add_argument('--test-time', help="Test time display in a loop", action="store_true")
     parser.add_argument('--test-alpha', help="Test alpha display in a loop", action="store_true")
+    parser.add_argument('--test-spinner', help="Test pump display spinner", action="store_true")
     parser.add_argument('-t', '--test-all', help="Test all in a loop", action="store_true")
     args = parser.parse_args()
 
@@ -211,6 +239,8 @@ if __name__ == "__main__":
         test_time()
     elif args.test_alpha:
         test_alpha()
+    elif args.test_spinner:
+        test_spinner()
     elif args.test_all:
         test()
     else:
